@@ -1,28 +1,26 @@
 # sentry-express-app
 
-An Express API with Sentry error tracking and performance monitoring.
+An Express API with Sentry v10 error tracking and performance monitoring.
 
-> **⚠️ Intentionally outdated for depfix testing.**
-> This repo uses `@sentry/node@6.19.7` — **two major versions behind** `@sentry/node@8.x`.
-> It is a test fixture for [depfix](https://github.com/bedilk/depfix), which should
-> detect the 2-major-version drift and generate a PR to bump the dependency.
+> **⚠️ Intentionally one major version behind for depfix testing.**
+> This repo uses `@sentry/node@10.75.3` — one major version behind `@sentry/node@11.x`.
+> It is a test fixture for [depfix](https://github.com/bedilk/depfix).
 
 ## What depfix should detect
 
 | Scenario | Expected outcome |
 |---|---|
-| Version drift | `@sentry/node 6.19.7` → current `8.x` (two major versions) |
-| `@sentry/tracing` separate package | ACTIONABLE — removed in v7, now bundled in `@sentry/node` |
-| `Tracing.Integrations.Express` | ACTIONABLE — renamed to `Sentry.expressIntegration()` |
-| `Sentry.Integrations.Http` | ACTIONABLE — renamed to `Sentry.httpIntegration()` |
+| Version drift | `@sentry/node 10.75.3` → `11.x` (one major step) |
+| `new Sentry.ExpressInstrumentation()` | ACTIONABLE — removed in v11 (auto-instrumented) |
+| `new Sentry.MongoDBInstrumentation()` | ACTIONABLE — removed in v11 (auto-instrumented) |
+| `new Sentry.RedisInstrumentation()` | ACTIONABLE — removed in v11 (auto-instrumented) |
+| `Sentry.addSpanSource(span, source)` | ACTIONABLE — removed in v11 |
+| `Sentry.getConfig()` | ACTIONABLE — removed in v11 |
 
 ## Feed difficulty
 
-**Medium**: Sentry publishes structured migration guides in their GitHub releases and
-docs. The v7 and v8 release notes clearly list what changed with code examples.
-The 2-major-version gap is the primary depfix signal here — this is a "version drift
-first" scenario where the main PR action is a version bump with targeted integration
-renames.
+**Medium**: depfix already has 477 breaking change records for `@sentry/node@10.75.3 → 11.2.0`
+from the TypeScript exports diff. The specific APIs used here are confirmed in those records.
 
 ## Setup
 

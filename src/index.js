@@ -1,38 +1,34 @@
 require("dotenv").config();
 const express = require("express");
-const { initSentry, captureError, setUser, Handlers } = require("./sentry");
+const Sentry = require("@sentry/node");
+const { initSentry, captureError, setUser } = require("./sentry");
 
 const app = express();
-
-// Sentry v6: must be first middleware
-initSentry(app);
-app.use(Handlers.requestHandler());
-app.use(Handlers.tracingHandler());
-
 app.use(express.json());
 
-app.get("/health", (_req, res) => {
+// Initialize Sentry before any routes
+initSentry(app);
+
+app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-app.post("/process", async (req, res) => {
-  const { userId, data } = req.body;
-
-  if (userId) setUser({ id: userId, email: `${userId}@example.com` });
+app.post("/users/:id/action", async (req, res) => {
+  const { id } = req.params;
+  setUser(id, req.body.email);
 
   try {
-    if (!data) throw new Error("data is required");
-    // Simulate processing
-    const result = { processed: true, length: String(data).length };
-    res.json(result);
+    // Simulate work
+    await new Promise((r) => setTimeout(r, 10));
+    res.json({ ok: true });
   } catch (err) {
-    captureError(err, { userId, data });
-    res.status(400).json({ error: err.message });
+    captureError(err, { userId: id });
+    res.status(500).json({ error: "internal error" });
   }
 });
 
-// Sentry v6: error handler must be before other error middleware
-app.use(Handlers.errorHandler());
+// Sentry error handler must be registered after routes
+app.use(Sentry.Handlers.errorHandler());
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => console.log(`Listening on :${PORT}`));

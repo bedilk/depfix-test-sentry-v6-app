@@ -1,52 +1,63 @@
+require("dotenv").config();
 const Sentry = require("@sentry/node");
-const Tracing = require("@sentry/tracing");
 
 /**
- * Initialize Sentry with performance tracing.
- * Uses the Sentry v6 API: separate @sentry/tracing package, Integrations namespace.
+ * Initialize Sentry for an Express + MongoDB + Redis application.
+ * Uses v10 instrumentation APIs that were removed or changed in v11.
  */
 function initSentry(app) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || "development",
-    integrations: [
-      new Sentry.Integrations.Http({ tracing: true }),
-      new Tracing.Integrations.Express({ app }),
-    ],
     tracesSampleRate: 1.0,
+    // v10: instrumentations are passed directly — changed in v11
+    integrations: [
+      // ExpressInstrumentation was an exported class in v10; removed in v11
+      new Sentry.ExpressInstrumentation(),
+      // MongoDBInstrumentation was exported from @sentry/node in v10; removed in v11
+      new Sentry.MongoDBInstrumentation(),
+      // RedisInstrumentation was exported from @sentry/node in v10; removed in v11
+      new Sentry.RedisInstrumentation(),
+    ],
   });
+
+  // Express request/error handlers
+  app.use(Sentry.Handlers.requestHandler());
+  app.use(Sentry.Handlers.tracingHandler());
 }
 
 /**
- * Capture an exception with optional extra context.
+ * Capture and report an error to Sentry.
  */
 function captureError(error, context = {}) {
   Sentry.withScope((scope) => {
-    for (const [key, val] of Object.entries(context)) {
-      scope.setExtra(key, val);
-    }
+    scope.setExtras(context);
     Sentry.captureException(error);
   });
 }
 
 /**
- * Set the authenticated user on the current Sentry scope.
+ * Set the current user on the Sentry scope.
  */
-function setUser(user) {
-  Sentry.setUser({ id: user.id, email: user.email });
+function setUser(userId, email) {
+  Sentry.setUser({ id: userId, email });
 }
 
 /**
- * Start a custom transaction for manual performance tracking.
+ * Add a custom span source annotation (v10 API; removed in v11).
+ * In v11, span sources are handled differently via OTel attributes.
  */
-function startTransaction(name, op) {
-  return Sentry.startTransaction({ name, op });
+function annotateSpanSource(span, source) {
+  // addSpanSource was exported from @sentry/node in v10; removed in v11
+  Sentry.addSpanSource(span, source);
 }
 
-module.exports = {
-  initSentry,
-  captureError,
-  setUser,
-  startTransaction,
-  Handlers: Sentry.Handlers,
-};
+/**
+ * Get the current Sentry configuration (v10 API; removed in v11).
+ */
+function getCurrentConfig() {
+  // getConfig was exported from @sentry/node in v10; removed in v11
+  return Sentry.getConfig();
+}
+
+module.exports = { initSentry, captureError, setUser, annotateSpanSource, getCurrentConfig };
