@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const Sentry = require("@sentry/node");
 const { initSentry, captureError, setUser } = require("./sentry");
+const { profileDbQuery, readConfig } = require("./performance");
 
 const app = express();
 app.use(express.json());
@@ -10,7 +11,13 @@ app.use(express.json());
 initSentry(app);
 
 app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
+  // readConfig uses v10 getConfig API; shows current DSN to ops tooling
+  const cfg = readConfig();
+  res.json({ status: "ok", sentryDsn: cfg?.dsn });
+});
+
+app.get("/config", (req, res) => {
+  res.json(readConfig());
 });
 
 app.post("/users/:id/action", async (req, res) => {
@@ -18,9 +25,12 @@ app.post("/users/:id/action", async (req, res) => {
   setUser(id, req.body.email);
 
   try {
-    // Simulate work
-    await new Promise((r) => setTimeout(r, 10));
-    res.json({ ok: true });
+    // profileDbQuery uses v10 startTransaction + addSpanSource internally
+    const result = await profileDbQuery("user.action", async () => {
+      await new Promise((r) => setTimeout(r, 10));
+      return { ok: true };
+    });
+    res.json(result);
   } catch (err) {
     captureError(err, { userId: id });
     res.status(500).json({ error: "internal error" });
